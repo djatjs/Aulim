@@ -6,10 +6,8 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class MemberRegistrationDto {
+public class MemberUpdateDto {
     private String name;
-    private String email;
-    private String password;
     private Part mainPart;
     private String phone;
 }

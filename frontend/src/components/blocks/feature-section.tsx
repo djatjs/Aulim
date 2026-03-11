@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 interface Feature {
@@ -141,13 +140,10 @@ export function FeatureSteps({
                                             exit={{ opacity: 0, scale: 0.95 }}
                                             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
                                         >
-                                            <Image
+                                            <img
                                                 src={feature.image}
                                                 alt={feature.step}
                                                 className="w-full h-full object-cover"
-                                                width={1000}
-                                                height={600}
-                                                priority
                                             />
                                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent" />
                                         </motion.div>

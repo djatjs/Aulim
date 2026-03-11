@@ -10,8 +10,9 @@ interface RecruitPost {
     title: string;
     singer: string;
     songName: string;
-    authorName: string;
-    status: "OPEN" | "COMPLETED";
+    author?: any;
+    authorName?: string;
+    status: "OPEN" | "CLOSED" | "COMPLETED";
     createdAt: string;
     sessions: any[];
 }
@@ -46,7 +47,7 @@ export default function RecruitListPage() {
             <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-end mb-12">
                     <div>
-                        <h1 className="text-4xl font-black text-slate-900 dark:text-white mb-4">함께 연주할 멤버를 찾으세요</h1>
+                        <h1 className="text-4xl font-black text-slate-900 dark:text-white mb-4">함께 공연할 멤버를 찾으세요</h1>
                         <p className="text-slate-500 font-medium">다양한 곡과 세션의 구인 게시글을 확인하고 지원해보세요.</p>
                     </div>
                     <Link
@@ -67,8 +68,11 @@ export default function RecruitListPage() {
                             className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:shadow-slate-200/50 dark:hover:shadow-none transition-all group"
                         >
                             <div className="flex justify-between items-start mb-6">
-                                <span className={`px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase ${post.status === 'OPEN' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                    {post.status === 'OPEN' ? '모집중' : '모집완료'}
+                                <span className={`px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase ${post.status === 'OPEN' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    post.status === 'CLOSED' ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' :
+                                        'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400'
+                                    }`}>
+                                    {post.status === 'OPEN' ? '모집중' : post.status === 'CLOSED' ? '마감됨' : '모집완료'}
                                 </span>
                                 <span className="text-slate-400 text-xs font-bold">{new Date(post.createdAt).toLocaleDateString()}</span>
                             </div>
@@ -91,7 +95,7 @@ export default function RecruitListPage() {
                             </div>
 
                             <div className="pt-6 border-t border-slate-50 dark:border-slate-800 flex justify-between items-center">
-                                <span className="text-sm font-bold text-slate-400">By {post.authorName}</span>
+                                <span className="text-sm font-bold text-slate-400">By {post.author?.name || post.authorName}</span>
                                 <Link href={`/recruits/${post.id}`} className="text-blue-600 font-black text-sm hover:underline">상세보기 →</Link>
                             </div>
                         </motion.div>

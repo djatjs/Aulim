@@ -42,6 +42,18 @@ public class RecruitController {
         return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "신청을 수락했습니다."));
     }
 
+    @PatchMapping("/applications/{appId}/reject")
+    public ResponseEntity<?> rejectApplication(Authentication authentication, @PathVariable Long appId) {
+        recruitService.rejectApplication(appId, authentication.getName());
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "신청을 거절했습니다."));
+    }
+
+    @DeleteMapping("/applications/{appId}")
+    public ResponseEntity<?> cancelApplication(Authentication authentication, @PathVariable Long appId) {
+        recruitService.cancelApplication(appId, authentication.getName());
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "지원이 취소되었습니다."));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<RecruitPostDto.Response> getPost(@PathVariable Long id) {
         return ResponseEntity.ok(recruitService.convertToDto(
@@ -53,6 +65,12 @@ public class RecruitController {
             @RequestBody RecruitPostDto.CreateRequest request) {
         recruitService.updatePost(id, authentication.getName(), request);
         return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "게시글이 수정되었습니다."));
+    }
+
+    @PatchMapping("/{id}/close")
+    public ResponseEntity<?> closePost(Authentication authentication, @PathVariable Long id) {
+        recruitService.closePost(id, authentication.getName());
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "구인글이 마감되었습니다."));
     }
 
     @DeleteMapping("/{id}")

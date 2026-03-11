@@ -4,6 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { Dropdown } from "@/components/ui/Dropdown";
+
+const PART_OPTIONS = [
+    { value: "VOCAL", label: "Vocal" },
+    { value: "GUITAR", label: "Guitar" },
+    { value: "BASS", label: "Bass" },
+    { value: "DRUM", label: "Drum" },
+    { value: "PIANO", label: "Piano" },
+];
 
 export default function SignupPage() {
     const router = useRouter();
@@ -12,7 +21,6 @@ export default function SignupPage() {
         email: "",
         password: "",
         mainPart: "VOCAL",
-        experienceYears: 0,
         phone: "",
     });
 
@@ -21,10 +29,7 @@ export default function SignupPage() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: name === "experienceYears" ? parseInt(value) || 0 : value,
-        }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -91,18 +96,12 @@ export default function SignupPage() {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">주요 세션</label>
-                                <select
-                                    name="mainPart"
+                                <Dropdown
+                                    options={PART_OPTIONS}
                                     value={formData.mainPart}
-                                    onChange={handleChange}
-                                    className="w-full px-5 py-4 rounded-2xl bg-slate-100/50 dark:bg-slate-800/50 border-none focus:ring-2 focus:ring-blue-600 transition-all outline-none appearance-none cursor-pointer"
-                                >
-                                    <option value="VOCAL">Vocal</option>
-                                    <option value="GUITAR">Guitar</option>
-                                    <option value="BASS">Bass</option>
-                                    <option value="DRUM">Drum</option>
-                                    <option value="PIANO">Piano</option>
-                                </select>
+                                    onChange={(val) => setFormData(prev => ({ ...prev, mainPart: val }))}
+                                    className="w-full"
+                                />
                             </div>
                         </div>
 
@@ -132,30 +131,17 @@ export default function SignupPage() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">경력 (년)</label>
-                                <input
-                                    name="experienceYears"
-                                    type="number"
-                                    min="0"
-                                    value={formData.experienceYears}
-                                    onChange={handleChange}
-                                    className="w-full px-5 py-4 rounded-2xl bg-slate-100/50 dark:bg-slate-800/50 border-none focus:ring-2 focus:ring-blue-600 transition-all outline-none"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">연락처</label>
-                                <input
-                                    required
-                                    name="phone"
-                                    type="text"
-                                    placeholder="010-0000-0000"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    className="w-full px-5 py-4 rounded-2xl bg-slate-100/50 dark:bg-slate-800/50 border-none focus:ring-2 focus:ring-blue-600 transition-all outline-none"
-                                />
-                            </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">연락처</label>
+                            <input
+                                required
+                                name="phone"
+                                type="text"
+                                placeholder="010-0000-0000"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                className="w-full px-5 py-4 rounded-2xl bg-slate-100/50 dark:bg-slate-800/50 border-none focus:ring-2 focus:ring-blue-600 transition-all outline-none"
+                            />
                         </div>
 
                         {error && (

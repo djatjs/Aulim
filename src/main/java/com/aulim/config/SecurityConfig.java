@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,16 +36,26 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfiguration = new org.springframework.web.cors.CorsConfiguration();
                     corsConfiguration.setAllowedOrigins(java.util.List.of("http://localhost:3000"));
-                    corsConfiguration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                    corsConfiguration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                     corsConfiguration.setAllowedHeaders(java.util.List.of("*"));
                     return corsConfiguration;
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        // 2. 개발 중에는 일단 모든 요청을 허용 (authenticated -> permitAll)
-                        .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/recruits", "/api/recruits/{id}").permitAll()
+                        .requestMatchers("/api/mypage/**", "/api/reservations/**", "/api/notifications/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/recruits/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/recruits/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/recruits/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/recruits/**").authenticated()
                         .anyRequest().permitAll())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                        })
+                )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

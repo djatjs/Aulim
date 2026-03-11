@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { fetchApi } from "@/lib/api";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-
-import Toast from "@/components/ui/Toast";
+import { Dropdown } from "@/components/ui/Dropdown";
+import { ModalDialog } from "@/components/ui/ModalDialog";
+import { HelpCircle, AlertTriangle } from "lucide-react";
 
 interface RecruitDetail {
     id: number;
@@ -15,9 +16,10 @@ interface RecruitDetail {
     targetPerformance: string;
     referenceLink: string;
     content: string;
-    authorName: string;
-    authorEmail: string;
-    status: "OPEN" | "COMPLETED";
+    author?: any;
+    authorName?: string;
+    authorEmail?: string;
+    status: "OPEN" | "CLOSED" | "COMPLETED";
     sessions: any[];
     applications: any[];
 }
@@ -28,17 +30,18 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
     const [detail, setDetail] = useState<RecruitDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
     const [applyMessage, setApplyMessage] = useState("");
     const [selectedPart, setSelectedPart] = useState("");
     const [userEmail, setUserEmail] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
     useEffect(() => {
         setUserEmail(localStorage.getItem("email"));
     }, []);
 
     const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
-        setToast({ message, type });
+        alert(message);
     };
 
     const loadDetail = async () => {
@@ -58,8 +61,13 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
         loadDetail();
     }, []);
 
-    const isAuthor = userEmail === detail?.authorEmail;
-    const hasApplied = detail?.applications?.some(app => app.applicantEmail === userEmail);
+    const currentAuthorEmail = detail?.author?.email || detail?.authorEmail;
+    const currentAuthorName = detail?.author?.name || detail?.authorName;
+
+    const isAuthor = userEmail === currentAuthorEmail;
+    const myApplication = detail?.applications?.find(app => app.applicantEmail === userEmail);
+    const hasApplied = !!myApplication;
+    const myApplicationStatus = myApplication?.status;
 
     const handleApply = async () => {
         if (!selectedPart) return showToast("세션을 선택해주세요.", "info");
@@ -86,16 +94,46 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
         }
     };
 
+    const handleReject = async (appId: number) => {
+        if (!confirm("정말 이 지원자를 거절하시겠습니까? 거절 후 변경할 수 없습니다.")) return;
+        try {
+            await fetchApi(`/recruits/applications/${appId}/reject`, { method: "PATCH" });
+            showToast("신청을 거절했습니다.", "success");
+            loadDetail();
+        } catch (err: any) {
+            showToast(err.message, "error");
+        }
+    };
+
     const handleEdit = () => {
         router.push(`/recruits/${id}/edit`);
     };
 
-    const handleDelete = async () => {
-        if (!confirm("정말 이 게시글을 삭제하시겠습니까?")) return;
+    const handleDeleteClick = () => {
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
         try {
             await fetchApi(`/recruits/${id}`, { method: "DELETE" });
             showToast("게시글이 삭제되었습니다.", "success");
+            setIsDeleteModalOpen(false);
             router.push("/recruits");
+        } catch (err: any) {
+            showToast(err.message, "error");
+        }
+    };
+
+    const handleCloseClick = () => {
+        setIsCloseModalOpen(true);
+    };
+
+    const confirmClose = async () => {
+        try {
+            await fetchApi(`/recruits/${id}/close`, { method: "PATCH" });
+            showToast("모집이 마감되었습니다.", "success");
+            setIsCloseModalOpen(false);
+            loadDetail();
         } catch (err: any) {
             showToast(err.message, "error");
         }
@@ -106,16 +144,6 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
 
     return (
         <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 pt-28 px-6">
-            <AnimatePresence>
-                {toast && (
-                    <Toast
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => setToast(null)}
-                    />
-                )}
-            </AnimatePresence>
-
             <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
 
                 {/* Left: Content */}
@@ -123,18 +151,28 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
                     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
                         <div className="flex items-center justify-between mb-8">
                             <div className="flex items-center gap-4">
-                                <span className="px-4 py-1.5 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-full text-xs font-black uppercase tracking-widest">
-                                    {detail.status === 'OPEN' ? '모집 중' : '모집 완료'}
+                                <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${detail.status === 'OPEN' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    detail.status === 'CLOSED' ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' :
+                                        'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400'
+                                    }`}>
+                                    {detail.status === 'OPEN' ? '모집중' : detail.status === 'CLOSED' ? '마감됨' : '모집 완료'}
                                 </span>
-                                <span className="text-slate-400 font-bold text-sm">By {detail.authorName}</span>
+                                <span className="text-slate-400 font-bold text-sm">By {currentAuthorName}</span>
                             </div>
                             {isAuthor && (
                                 <div className="flex gap-2">
+                                    {detail.status === 'OPEN' && (
+                                        <button
+                                            onClick={handleCloseClick}
+                                            className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl font-bold text-xs hover:bg-indigo-100 transition-all">
+                                            마감
+                                        </button>
+                                    )}
                                     <button
                                         onClick={handleEdit}
                                         className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all">수정</button>
                                     <button
-                                        onClick={handleDelete}
+                                        onClick={handleDeleteClick}
                                         className="px-4 py-2 bg-red-50 text-red-500 rounded-xl font-bold text-xs hover:bg-red-100 transition-all">삭제</button>
                                 </div>
                             )}
@@ -195,12 +233,20 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
                                             <p className="text-slate-500 font-medium text-sm">"{app.message || '지원 메시지가 없습니다.'}"</p>
                                         </div>
                                         {app.status === 'PENDING' ? (
-                                            <button
-                                                onClick={() => handleAccept(app.id)}
-                                                className="px-6 py-2 bg-blue-600 text-white rounded-xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 dark:shadow-none"
-                                            >
-                                                수락하기
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleReject(app.id)}
+                                                    className="px-6 py-2 bg-red-50 text-red-600 rounded-xl font-black text-sm hover:bg-red-100 transition-all dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+                                                >
+                                                    거절하기
+                                                </button>
+                                                <button
+                                                    onClick={() => handleAccept(app.id)}
+                                                    className="px-6 py-2 bg-blue-600 text-white rounded-xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 dark:shadow-none"
+                                                >
+                                                    수락하기
+                                                </button>
+                                            </div>
                                         ) : (
                                             <span className="text-sm font-black text-slate-400 px-4">
                                                 {app.status === 'ACCEPTED' ? '수락됨' : '거절됨'}
@@ -257,18 +303,30 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
                         </div>
 
                         {detail.status === 'COMPLETED' && (
+                            <div className="w-full py-5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 text-center rounded-[2rem] font-black text-lg">
+                                모집 완료
+                            </div>
+                        )}
+                        {detail.status === 'CLOSED' && (
                             <div className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 text-center rounded-[2rem] font-black text-lg">
-                                전체 모집이 완료되었습니다
+                                모집 마감
                             </div>
                         )}
                         {isAuthor && detail.status === 'OPEN' && (
                             <div className="w-full py-5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-center rounded-[2rem] font-black text-sm">
-                                지원자들의 신청을 기다리고 있습니다
+                                지원 대기중
                             </div>
                         )}
                         {hasApplied && detail.status === 'OPEN' && (
-                            <div className="w-full py-5 bg-green-50 dark:bg-green-900/20 text-green-600 text-center rounded-[2rem] font-black text-sm">
-                                지원서가 정상적으로 전달되었습니다
+                            <div className={`w-full py-5 text-center rounded-[2rem] font-black text-sm transition-all ${myApplicationStatus === 'ACCEPTED'
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600'
+                                : myApplicationStatus === 'REJECTED'
+                                    ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
+                                    : 'bg-green-50 dark:bg-green-900/20 text-green-600'
+                                }`}>
+                                {myApplicationStatus === 'ACCEPTED' ? '팀 합류 확정' :
+                                    myApplicationStatus === 'REJECTED' ? '모집 불합격' :
+                                        '지원 승인 대기중'}
                             </div>
                         )}
                     </motion.div>
@@ -276,47 +334,82 @@ export default function RecruitDetailPage({ params }: { params: { id: string } }
             </div>
 
             {/* Apply Modal */}
-            <AnimatePresence>
-                {isApplyModalOpen && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/30 backdrop-blur-md">
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="w-full max-w-lg bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-indigo-600" />
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-8">참여 신청하기</h2>
+            <ModalDialog
+                open={isApplyModalOpen}
+                onOpenChange={setIsApplyModalOpen}
+                title="참여 신청하기"
+                footer={
+                    <>
+                        <button onClick={() => setIsApplyModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-slate-200 transition-all">
+                            취소
+                        </button>
+                        <button onClick={handleApply} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 dark:shadow-none transition-all px-6">
+                            지원 완료
+                        </button>
+                    </>
+                }
+            >
+                <div className="space-y-6">
+                    <div className="space-y-2 text-left">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">지원 세션 선택</label>
+                        <Dropdown
+                            options={detail.sessions
+                                .filter((s: any) => s.currentCount < s.count)
+                                .map((s: any) => ({ value: s.part, label: s.part }))}
+                            value={selectedPart}
+                            onChange={(val) => setSelectedPart(val)}
+                            placeholder="지원할 세션을 선택하세요"
+                            className="w-full"
+                        />
+                    </div>
+                    <div className="space-y-2 text-left">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">나의 메시지</label>
+                        <textarea
+                            rows={4}
+                            value={applyMessage}
+                            onChange={(e) => setApplyMessage(e.target.value)}
+                            placeholder="간단한 자기소개나 지원 동기를 적어주세요."
+                            className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+                        />
+                    </div>
+                </div>
+            </ModalDialog>
 
-                            <div className="space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-black text-slate-600 dark:text-slate-400 ml-1">지원 세션 선택</label>
-                                    <select
-                                        value={selectedPart}
-                                        onChange={(e) => setSelectedPart(e.target.value)}
-                                        className="w-full p-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                    >
-                                        <option value="">지원할 세션을 선택하세요</option>
-                                        {detail.sessions.filter((s: any) => s.currentCount < s.count).map((s: any) => (
-                                            <option key={s.id} value={s.part}>{s.part}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-black text-slate-600 dark:text-slate-400 ml-1">나의 메시지</label>
-                                    <textarea
-                                        rows={4}
-                                        value={applyMessage}
-                                        onChange={(e) => setApplyMessage(e.target.value)}
-                                        placeholder="간단한 자기소개나 지원 동기를 적어주세요."
-                                        className="w-full p-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                    />
-                                </div>
+            {/* Delete Confirm Modal */}
+            <ModalDialog
+                open={isDeleteModalOpen}
+                onOpenChange={setIsDeleteModalOpen}
+                title="게시글 삭제"
+                description="정말 이 구인글을 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다."
+                footer={
+                    <>
+                        <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-slate-200 transition-all">
+                            돌아가기
+                        </button>
+                        <button onClick={confirmDelete} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-100 dark:shadow-none transition-all px-6">
+                            삭제하기
+                        </button>
+                    </>
+                }
+            />
 
-                                <div className="flex gap-4 pt-4">
-                                    <button onClick={() => setIsApplyModalOpen(false)} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-[2rem] font-black hover:bg-slate-200 transition-all">취소</button>
-                                    <button onClick={handleApply} className="flex-2 py-5 bg-blue-600 text-white rounded-[2rem] font-black hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all px-10">지원 완료</button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Close Confirm Modal */}
+            <ModalDialog
+                open={isCloseModalOpen}
+                onOpenChange={setIsCloseModalOpen}
+                title="모집 마감"
+                description="아직 모집 인원이 덜 찼더라도 구인을 수동으로 마감하시겠습니까? 마감된 게시글에는 더 이상 신청할 수 없습니다."
+                footer={
+                    <>
+                        <button onClick={() => setIsCloseModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-slate-200 transition-all">
+                            취소
+                        </button>
+                        <button onClick={confirmClose} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 dark:shadow-none transition-all px-6">
+                            마감하기
+                        </button>
+                    </>
+                }
+            />
         </main>
     );
 }

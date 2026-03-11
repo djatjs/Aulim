@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,10 +25,17 @@ public class MyPageController {
     private final RecruitmentApplicationRepository applicationRepository;
     private final ReservationRepository reservationRepository;
     private final MyPageService myPageService;
+    private final com.aulim.service.MemberService memberService;
 
     @GetMapping("/summary")
     public ResponseEntity<MyPageSummaryDto> getSummary(Authentication authentication) {
         return ResponseEntity.ok(myPageService.getSummary(authentication.getName()));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(Authentication authentication, @RequestBody com.aulim.dto.MemberUpdateDto dto) {
+        memberService.updateProfile(authentication.getName(), dto);
+        return ResponseEntity.ok(java.util.Map.of("status", "SUCCESS"));
     }
 
     /**

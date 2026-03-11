@@ -26,9 +26,17 @@ public class MemberService {
         member.setEmail(dto.getEmail());
         member.setPassword(passwordEncoder.encode(dto.getPassword()));
         member.setMainPart(dto.getMainPart());
-        member.setExperienceYears(dto.getExperienceYears());
         member.setPhone(dto.getPhone());
 
         return memberRepository.save(member).getId();
+    }
+
+    public void updateProfile(String email, com.aulim.dto.MemberUpdateDto dto) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        member.setName(dto.getName());
+        member.setMainPart(dto.getMainPart());
+        member.setPhone(dto.getPhone());
     }
 }

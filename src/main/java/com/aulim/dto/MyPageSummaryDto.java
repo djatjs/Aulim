@@ -12,8 +12,8 @@ import java.util.List;
 public class MyPageSummaryDto {
     private String name;
     private Part mainPart;
-    private int experienceYears;
     private List<PostSummary> myPosts;
+    private List<AppliedPostSummary> appliedPosts;
     private List<ReservationSummary> teamReservations;
 
     @Getter
@@ -24,6 +24,19 @@ public class MyPageSummaryDto {
         private String singer;
         private String songName;
         private String authorEmail;
+        private com.aulim.domain.PostStatus status;
+    }
+
+    @Getter
+    @Builder
+    public static class AppliedPostSummary {
+        private Long id; // Application Id
+        private Long postId;
+        private String title;
+        private String singer;
+        private String songName;
+        private Part appliedPart;
+        private com.aulim.domain.ApplicationStatus status;
     }
 
     @Getter

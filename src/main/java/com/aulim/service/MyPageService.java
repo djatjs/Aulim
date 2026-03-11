@@ -3,6 +3,7 @@ package com.aulim.service;
 import com.aulim.domain.Member;
 import com.aulim.dto.MyPageSummaryDto;
 import com.aulim.repository.MemberRepository;
+import com.aulim.repository.RecruitmentApplicationRepository;
 import com.aulim.repository.RecruitmentRepository;
 import com.aulim.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class MyPageService {
         private final MemberRepository memberRepository;
         private final RecruitmentRepository recruitmentRepository;
         private final ReservationRepository reservationRepository;
+        private final RecruitmentApplicationRepository applicationRepository;
 
         public MyPageSummaryDto getSummary(String email) {
                 Member member = memberRepository.findByEmail(email)
@@ -35,6 +37,20 @@ public class MyPageService {
                                                 .singer(post.getSinger())
                                                 .songName(post.getSongName())
                                                 .authorEmail(post.getAuthor().getEmail())
+                                                .status(post.getStatus())
+                                                .build())
+                                .collect(Collectors.toList());
+
+                // 내가 지원한 구인 게시글
+                List<MyPageSummaryDto.AppliedPostSummary> appliedPosts = applicationRepository.findByApplicantEmail(email).stream()
+                                .map(app -> MyPageSummaryDto.AppliedPostSummary.builder()
+                                                .id(app.getId())
+                                                .postId(app.getPost().getId())
+                                                .title(app.getPost().getTitle())
+                                                .singer(app.getPost().getSinger())
+                                                .songName(app.getPost().getSongName())
+                                                .appliedPart(app.getPart())
+                                                .status(app.getStatus())
                                                 .build())
                                 .collect(Collectors.toList());
 
@@ -56,8 +72,8 @@ public class MyPageService {
                 return MyPageSummaryDto.builder()
                                 .name(member.getName())
                                 .mainPart(member.getMainPart())
-                                .experienceYears(member.getExperienceYears())
                                 .myPosts(myPosts)
+                                .appliedPosts(appliedPosts)
                                 .teamReservations(teamReservations)
                                 .build();
         }

@@ -27,8 +27,6 @@ public class Member {
     @Column(nullable = false)
     private Part mainPart;
 
-    private int experienceYears = 0;
-
     private String phone;
 
     @ManyToOne(fetch = FetchType.LAZY)

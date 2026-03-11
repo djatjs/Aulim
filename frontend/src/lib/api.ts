@@ -17,7 +17,18 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
         headers,
     });
 
-    const result = await response.json();
+    if (response.status === 401) {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+            localStorage.removeItem('email');
+            alert("로그인이 필요하거나 세션이 만료되었습니다. 다시 로그인해주세요.");
+            window.location.href = '/login?expired=true';
+            return new Promise(() => {});
+        }
+        throw new Error("Unauthorized");
+    }
+
+    const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
         throw new Error(result.message || "오류가 발생했습니다.");

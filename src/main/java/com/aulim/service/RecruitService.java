@@ -1,8 +1,20 @@
 package com.aulim.service;
 
-import com.aulim.domain.*;
+import com.aulim.domain.Team;
+import com.aulim.domain.ApplicationStatus;
+import com.aulim.domain.Member;
+import com.aulim.domain.Notification;
+import com.aulim.domain.PostStatus;
+import com.aulim.domain.RecruitmentApplication;
+import com.aulim.domain.RecruitmentPost;
+import com.aulim.domain.RecruitmentSession;
 import com.aulim.dto.RecruitPostDto;
-import com.aulim.repository.*;
+import com.aulim.repository.MemberRepository;
+import com.aulim.repository.NotificationRepository;
+import com.aulim.repository.RecruitmentApplicationRepository;
+import com.aulim.repository.RecruitmentRepository;
+import com.aulim.repository.RecruitmentSessionRepository;
+import com.aulim.repository.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +32,7 @@ public class RecruitService {
     private final RecruitmentApplicationRepository applicationRepository;
     private final MemberRepository memberRepository;
     private final TeamRepository teamRepository;
+    private final NotificationRepository notificationRepository;
 
     @Transactional
     public Long createPost(String email, RecruitPostDto.CreateRequest request) {
@@ -63,7 +76,48 @@ public class RecruitService {
         post.setTargetPerformance(request.getTargetPerformance());
         post.setReferenceLink(request.getReferenceLink());
         post.setContent(request.getContent());
-        // 세션 정보는 단순 정보 수정에서는 일단 제외하거나, 로직이 복잡해지므로 Post 정보만 우선 처리
+
+        if (request.getSessions() != null) {
+            List<RecruitmentSession> existingSessions = post.getSessions();
+            List<RecruitPostDto.SessionRequest> requestedSessions = request.getSessions();
+
+            // 1. Update existing or Add new
+            for (RecruitPostDto.SessionRequest reqSession : requestedSessions) {
+                RecruitmentSession existing = existingSessions.stream()
+                        .filter(s -> s.getPart() == reqSession.getPart())
+                        .findFirst()
+                        .orElse(null);
+
+                if (existing != null) {
+                    if (reqSession.getCount() < existing.getCurrentCount()) {
+                        throw new IllegalArgumentException(reqSession.getPart() + " 세션의 모집 인원은 이미 수락된 인원(" + existing.getCurrentCount() + "명)보다 적을 수 없습니다.");
+                    }
+                    existing.setCount(reqSession.getCount());
+                } else {
+                    RecruitmentSession newSession = new RecruitmentSession();
+                    newSession.setPost(post);
+                    newSession.setPart(reqSession.getPart());
+                    newSession.setCount(reqSession.getCount());
+                    sessionRepository.save(newSession);
+                    existingSessions.add(newSession);
+                }
+            }
+
+            // 2. Remove deleted
+            List<RecruitmentSession> toRemove = existingSessions.stream()
+                    .filter(existing -> requestedSessions.stream().noneMatch(req -> req.getPart() == existing.getPart()))
+                    .collect(Collectors.toList());
+
+            for (RecruitmentSession sessionToRemove : toRemove) {
+                boolean hasApplicants = applicationRepository.findByPost(post).stream()
+                        .anyMatch(app -> app.getPart() == sessionToRemove.getPart());
+                if (hasApplicants) {
+                    throw new IllegalStateException(sessionToRemove.getPart() + " 세션에 이미 지원자가 존재하여 삭제할 수 없습니다.");
+                }
+                sessionRepository.delete(sessionToRemove);
+                existingSessions.remove(sessionToRemove);
+            }
+        }
     }
 
     @Transactional
@@ -76,6 +130,22 @@ public class RecruitService {
         }
 
         recruitmentRepository.delete(post);
+    }
+
+    @Transactional
+    public void closePost(Long postId, String email) {
+        RecruitmentPost post = recruitmentRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+
+        if (!post.getAuthor().getEmail().equals(email)) {
+            throw new SecurityException("작성자만 마감할 수 있습니다.");
+        }
+
+        if (post.getStatus() == PostStatus.COMPLETED) {
+            throw new IllegalStateException("이미 인원이 가득 차서 완료된 구인글입니다.");
+        }
+
+        post.setStatus(PostStatus.CLOSED);
     }
 
     public List<RecruitPostDto.Response> getAllPosts() {
@@ -108,6 +178,80 @@ public class RecruitService {
         application.setMessage(request.getMessage());
 
         applicationRepository.save(application);
+
+        // 작성자에게 새로운 지원자 알림 발송
+        createNotification(
+            post.getAuthor(), 
+            "게시글 '" + post.getTitle() + "'에 새로운 지원자(" + applicant.getName() + " - " + request.getPart() + ")가 신청했습니다.", 
+            "/recruits/" + post.getId()
+        );
+    }
+
+    @Transactional
+    public void cancelApplication(Long applicationId, String email) {
+        RecruitmentApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("지원 내역을 찾을 수 없습니다."));
+
+        if (!application.getApplicant().getEmail().equals(email)) {
+            throw new SecurityException("본인의 지원 내역만 취소할 수 있습니다.");
+        }
+
+        if (application.getStatus() == ApplicationStatus.ACCEPTED) {
+            revertAcceptance(application);
+        }
+
+        applicationRepository.delete(application);
+    }
+
+    @Transactional
+    public void rejectApplication(Long applicationId, String hostEmail) {
+        RecruitmentApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("신청을 찾을 수 없습니다."));
+
+        if (!application.getPost().getAuthor().getEmail().equals(hostEmail)) {
+            throw new SecurityException("작성자만 거절 처리를 할 수 있습니다.");
+        }
+
+        if (application.getStatus() == ApplicationStatus.ACCEPTED) {
+            revertAcceptance(application);
+        } else if (application.getStatus() != ApplicationStatus.PENDING) {
+            throw new IllegalStateException("이미 처리된 신청입니다.");
+        }
+
+        application.setStatus(ApplicationStatus.REJECTED);
+        createNotification(application.getApplicant(), "지원하신 '" + application.getPost().getTitle() + "' 합주에 아쉽게도 합류하지 못했습니다 (혹은 하차 처리되었습니다).", "/recruits/" + application.getPost().getId());
+    }
+
+    private void revertAcceptance(RecruitmentApplication application) {
+        RecruitmentPost post = application.getPost();
+
+        // 1. Decrease session count
+        RecruitmentSession targetSession = post.getSessions().stream()
+                .filter(s -> s.getPart().equals(application.getPart()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("해당 세션을 찾을 수 없습니다."));
+                
+        targetSession.setCurrentCount(Math.max(0, targetSession.getCurrentCount() - 1));
+
+        // 2. Revert post status to OPEN if it was COMPLETED
+        if (post.getStatus() == PostStatus.COMPLETED) {
+            post.setStatus(PostStatus.OPEN);
+        }
+
+        // 3. (Optional) Remove member from team if exists
+        Team team = application.getApplicant().getTeam();
+        if (team != null && team.getName().equals(post.getSongName() + " 팀")) {
+            application.getApplicant().setTeam(null);
+            // If team becomes empty (only author remains), could potentially delete team, but leaving it for now.
+        }
+    }
+
+    private void createNotification(Member member, String message, String relatedUrl) {
+        Notification notification = new Notification();
+        notification.setMember(member);
+        notification.setMessage(message);
+        notification.setRelatedUrl(relatedUrl);
+        notificationRepository.save(notification);
     }
 
     @Transactional
@@ -138,12 +282,14 @@ public class RecruitService {
         // 수락 처리
         application.setStatus(ApplicationStatus.ACCEPTED);
         targetSession.setCurrentCount(targetSession.getCurrentCount() + 1);
+        
+        createNotification(application.getApplicant(), "축하합니다! '" + post.getTitle() + "' 합주 팀 합류가 확정되었습니다.", "/recruits/" + post.getId());
 
         // 모든 세션이 완료되었는지 확인
         boolean allFinished = post.getSessions().stream()
                 .allMatch(s -> s.getCurrentCount() >= s.getCount());
 
-        if (allFinished) {
+        if (allFinished && post.getStatus() != PostStatus.CLOSED) {
             post.setStatus(PostStatus.COMPLETED);
             createTeamFromPost(post);
         }

@@ -4,6 +4,15 @@ import { useState } from "react";
 import { fetchApi } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { Dropdown } from "@/components/ui/Dropdown";
+
+const PART_OPTIONS = [
+    { value: "VOCAL", label: "Vocal" },
+    { value: "GUITAR", label: "Guitar" },
+    { value: "BASS", label: "Bass" },
+    { value: "DRUM", label: "Drum" },
+    { value: "PIANO", label: "Piano" },
+];
 
 const PARTS = ["VOCAL", "GUITAR", "BASS", "DRUM", "PIANO"];
 
@@ -149,13 +158,14 @@ export default function NewRecruitPage() {
                             <div className="space-y-4">
                                 {sessions.map((session, index) => (
                                     <div key={index} className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl">
-                                        <select
-                                            value={session.part}
-                                            onChange={(e) => updateSession(index, "part", e.target.value)}
-                                            className="flex-1 bg-white dark:bg-slate-900 border-none p-3 rounded-xl outline-none font-bold"
-                                        >
-                                            {PARTS.map(p => <option key={p} value={p}>{p}</option>)}
-                                        </select>
+                                        <div className="flex-1 min-w-[150px]">
+                                            <Dropdown
+                                                options={PART_OPTIONS}
+                                                value={session.part}
+                                                onChange={(val) => updateSession(index, "part", val)}
+                                                className="w-full"
+                                            />
+                                        </div>
                                         <input
                                             type="number"
                                             min="1"

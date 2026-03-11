@@ -26,7 +26,7 @@ export default function LoginPage() {
 
             localStorage.setItem("token", result.token);
             localStorage.setItem("email", email);
-            window.location.href = "/reservations"; // Force reload to update Navbar state
+            window.location.href = "/mypage"; // Force reload to update Navbar state
         } catch (err: any) {
             setError(err.message || "로그인에 실패했습니다.");
         } finally {

@@ -4,9 +4,15 @@ import { useEffect, useState } from "react";
 import { fetchApi } from "@/lib/api";
 import { useRouter, useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import Toast from "@/components/ui/Toast";
+import { Dropdown } from "@/components/ui/Dropdown";
 
-const PARTS = ["VOCAL", "GUITAR", "BASS", "DRUM", "PIANO"];
+const PART_OPTIONS = [
+    { value: "VOCAL", label: "Vocal" },
+    { value: "GUITAR", label: "Guitar" },
+    { value: "BASS", label: "Bass" },
+    { value: "DRUM", label: "Drum" },
+    { value: "PIANO", label: "Piano" },
+];
 
 export default function EditRecruitPage() {
     const router = useRouter();
@@ -17,12 +23,12 @@ export default function EditRecruitPage() {
     const [targetPerformance, setTargetPerformance] = useState("");
     const [referenceLink, setReferenceLink] = useState("");
     const [content, setContent] = useState("");
+    const [sessions, setSessions] = useState<{ part: string, count: number, currentCount?: number }[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
     const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
-        setToast({ message, type });
+        alert(message);
     };
 
     useEffect(() => {
@@ -50,6 +56,9 @@ export default function EditRecruitPage() {
                 setTargetPerformance(item.targetPerformance);
                 setReferenceLink(item.referenceLink);
                 setContent(item.content);
+                if (item.sessions) {
+                    setSessions(item.sessions.map((s: any) => ({ part: s.part, count: s.count, currentCount: s.currentCount })));
+                }
             } catch (err: any) {
                 alert(err.message);
                 router.push("/recruits");
@@ -60,6 +69,20 @@ export default function EditRecruitPage() {
         loadDetail();
     }, [id, router]);
 
+    const addSession = () => {
+        setSessions([...sessions, { part: "GUITAR", count: 1 }]);
+    };
+
+    const removeSession = (index: number) => {
+        setSessions(sessions.filter((_, i) => i !== index));
+    };
+
+    const updateSession = (index: number, field: string, value: any) => {
+        const newSessions = [...sessions];
+        (newSessions[index] as any)[field] = value;
+        setSessions(newSessions);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
@@ -67,13 +90,11 @@ export default function EditRecruitPage() {
             await fetchApi(`/recruits/${id}`, {
                 method: "PATCH",
                 body: JSON.stringify({
-                    title, singer, songName, targetPerformance, referenceLink, content
+                    title, singer, songName, targetPerformance, referenceLink, content, sessions
                 })
             });
             showToast("게시글이 성공적으로 수정되었습니다!", "success");
-            setTimeout(() => {
-                router.push(`/recruits/${id}`);
-            }, 1000);
+            router.push(`/recruits/${id}`);
         } catch (err: any) {
             showToast(err.message, "error");
         } finally {
@@ -85,16 +106,6 @@ export default function EditRecruitPage() {
 
     return (
         <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 pt-28 px-6">
-            <AnimatePresence>
-                {toast && (
-                    <Toast
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => setToast(null)}
-                    />
-                )}
-            </AnimatePresence>
-
             <div className="max-w-3xl mx-auto">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -166,6 +177,50 @@ export default function EditRecruitPage() {
                                     onChange={(e) => setContent(e.target.value)}
                                     className="w-full bg-slate-50 dark:bg-slate-800 border-none p-5 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Session Recruiting */}
+                        <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-black text-slate-900 dark:text-white">모집 세션 수정</h2>
+                                <button
+                                    type="button"
+                                    onClick={addSession}
+                                    className="text-sm font-black text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl transition-all"
+                                >
+                                    + 세션 추가
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {sessions.map((session, index) => (
+                                    <div key={index} className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl">
+                                        <div className="flex-1 min-w-[150px]">
+                                            <Dropdown
+                                                options={PART_OPTIONS}
+                                                value={session.part}
+                                                onChange={(val) => updateSession(index, "part", val)}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <input
+                                            type="number"
+                                            min={session.currentCount ? Math.max(1, session.currentCount) : 1}
+                                            value={session.count}
+                                            onChange={(e) => updateSession(index, "count", parseInt(e.target.value))}
+                                            className="w-20 bg-white dark:bg-slate-900 border-none p-3 rounded-xl outline-none font-bold text-center"
+                                        />
+                                        <span className="text-sm font-bold text-slate-400">명</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeSession(index)}
+                                            className="text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
