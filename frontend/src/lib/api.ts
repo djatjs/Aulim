@@ -23,7 +23,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
             localStorage.removeItem('email');
             alert("로그인이 필요하거나 세션이 만료되었습니다. 다시 로그인해주세요.");
             window.location.href = '/login?expired=true';
-            return new Promise(() => {});
+            return new Promise(() => { });
         }
         throw new Error("Unauthorized");
     }

@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -36,26 +37,27 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfiguration = new org.springframework.web.cors.CorsConfiguration();
                     corsConfiguration.setAllowedOrigins(java.util.List.of("http://localhost:3000"));
-                    corsConfiguration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                    corsConfiguration
+                            .setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                     corsConfiguration.setAllowedHeaders(java.util.List.of("*"));
                     return corsConfiguration;
                 }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/recruits", "/api/recruits/{id}").permitAll()
-                        .requestMatchers("/api/mypage/**", "/api/reservations/**", "/api/notifications/**").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/recruits/**").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/recruits/**").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/recruits/**").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/recruits/**").authenticated()
+                        .requestMatchers("/api/mypage/**", "/api/reservations/**", "/api/notifications/**")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/recruits/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/recruits/**").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/recruits/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/recruits/**").authenticated()
                         .anyRequest().permitAll())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-                        })
-                )
+                        }))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
